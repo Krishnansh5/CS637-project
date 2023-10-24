@@ -25,8 +25,8 @@ def build_memories_carla(source_dir, dest_dir, init_distance):
     print("Initializing Memorization Object")
     memorization_object = memorization(source_dir, dest_dir)
     # start_ = time.time()
-    memorization_object.learn_memories_with_CLARANS(init_distance_threshold = init_distance)
-    # memorization_object.learn_memories_with_fast_CLARANS2()
+    # memorization_object.learn_memories_with_CLARANS(init_distance_threshold = init_distance)
+    memorization_object.learn_memories_with_fast_CLARANS2()
     # end_ = time.time()
     # print("Time taken to build memories: ", end_ - start_)
 

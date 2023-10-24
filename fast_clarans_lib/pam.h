@@ -17,6 +17,8 @@
 #include <vector>
 #if __cplusplus >= 201103
 #include <unordered_map>
+#include "carla_data.hpp"
+
 using namespace std;
 #else
 #include <boost/unordered_map.hpp>
@@ -164,6 +166,32 @@ public:
         return dist[idx];
     }
 };
+
+// class SSIMDistMatrix : public DistMatrix
+// {
+//     int num_obs;
+//     int n;
+//     const std::vector<double>& dist;
+// public:
+//     SSIMDistMatrix(int num_obs, const std::vector<double>& dist, const std::vector<int>& _ids=std::vector<int>())
+//     : DistMatrix(_ids), num_obs(num_obs), dist(dist) {
+//         n = (num_obs - 1) * num_obs / 2;
+//     }
+//     virtual ~SSIMDistMatrix() {}
+    
+//     virtual double getDistance(int i, int j) {
+//         if (i == j) return 0;
+//         if (has_ids) {
+//             i = ids[i];
+//             j = ids[j];
+//         }
+//         // lower part triangle, store column wise
+//         int r = i > j ? i : j;
+//         int c = i < j ? i : j;
+//         int idx = n - (num_obs - c - 1) * (num_obs - c) / 2 + (r -c) -1 ;
+//         return dist[idx];
+//     }
+// };
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /// Initializer
@@ -478,6 +506,42 @@ public:
     virtual bool hasMedoid(int cand);
 };
 
+class SSIMAssignment
+{
+public:
+    int k;
+    int num_obs;
+    // Distance matrix
+    // DistMatrix* dist_matrix;
+    CarlaData* carla_data;
+    unordered_map<int, bool> medoids_dict;
+    std::vector<int> medoids;
+    std::vector<int> assignment;
+    std::vector<double> nearest;
+    std::vector<int> secondid;
+    std::vector<double> second;
+    
+public:
+    SSIMAssignment() {}
+    SSIMAssignment(int k, int num_obs, CarlaData* carla_data);
+    virtual ~SSIMAssignment() {}
+    
+    // Overload = operator
+    virtual SSIMAssignment& operator=(const SSIMAssignment& other);
+    
+    // Compute the reassignment cost, for one swap.
+    double computeCostDifferential(int h, int mnum, SSIMAssignment& scratch);
+    
+    //Recompute the assignment of one point.
+    virtual double recompute(int id, int mnum, double known, int snum, double sknown);
+    
+    // Assign each point to the nearest medoid.
+    virtual double assignToNearestCluster();
+    
+    // Check if medoid is already assigned
+    virtual bool hasMedoid(int cand);
+};
+
 class CLARANS
 {
 public:
@@ -554,6 +618,29 @@ public:
     void performLastSwap(int h);
 };
 
+class SSIMFastAssignment : public SSIMAssignment
+{
+public:
+    // Array for storing the per-medoid costs.
+    std::vector<double> cost;
+    
+    // Last best medoid number
+    int lastbest;
+    
+public:
+    SSIMFastAssignment() : SSIMAssignment() {}
+    SSIMFastAssignment(int k, int num_obs, CarlaData* carla_data)
+    : SSIMAssignment(k, num_obs, carla_data), cost(k) {}
+    
+    virtual ~SSIMFastAssignment()  {}
+    
+    // Compute the reassignment cost, for one swap.
+    double computeCostDifferential(int h);
+    
+    // Perform last swap
+    void performLastSwap(int h);
+};
+
 // A faster variation of CLARANS, that can explore O(k) as many swaps at a
 // similar cost by considering all medoids for each candidate non-medoid. Since
 // this means sampling fewer non-medoids, we suggest to increase the subsampling
@@ -572,6 +659,24 @@ public:
     virtual ~FastCLARANS() {}
     
     virtual double run();
+};
+
+class SSIMFastCLARANS : public CLARANS
+{
+public:
+    // k Number of clusters to produce
+    // numlocal  Number of samples to draw (i.e. restarts).
+    //    default: 2
+    // maxneighbor Sampling rate. If less than 1, it is considered to be a relative value.
+    //    default:  2 * 0.0125, larger sampling rate
+    SSIMFastCLARANS(int num_obs, CarlaData* carla_data,
+                int k, int numlocal, double maxneighbor,  int seed);
+    virtual ~SSIMFastCLARANS() {}
+    
+    virtual double run();
+
+protected:
+    CarlaData* carla_data;
 };
 
 #endif

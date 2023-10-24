@@ -70,6 +70,8 @@ class memorization :
                         current_data.create_data_from_scan(filename)
                         self.data_container[filename] = \
                         {"data": current_data, "files": {"image" : filename} }
+                    if self.num_samples > 3:
+                        break
 
             t1 = time.time()
             print("Number of samples =>",self.num_samples)
@@ -94,6 +96,8 @@ class memorization :
         start_ = time.time()
         dist_matrix = np.array(self.create_dist_matrix(),dtype=np.double)
         end_ = time.time()
+        print("dist matrix ->",dist_matrix)
+
         print("Time taken to build distance matrix: ", end_ - start_)
 
         start = time.time()

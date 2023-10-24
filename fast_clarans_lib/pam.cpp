@@ -19,6 +19,7 @@
 #include <algorithm>    // std::max
 
 #include "pam.h"
+#include "carla_data.hpp"
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ///
@@ -1161,6 +1162,145 @@ bool Assignment::hasMedoid(int cand) {
     return medoids_dict.find(cand) != medoids_dict.end();
 }
 
+SSIMAssignment::SSIMAssignment(int k, int num_obs, CarlaData* carla_data)
+:  k(k), num_obs(num_obs), carla_data(carla_data), medoids(k),
+assignment(num_obs), nearest(num_obs), secondid(num_obs), second(num_obs)
+{
+}
+
+SSIMAssignment &SSIMAssignment::operator=(const SSIMAssignment &other) {
+    num_obs = other.num_obs;
+    carla_data = other.carla_data;
+    medoids_dict = other.medoids_dict;
+    medoids = other.medoids;
+    assignment = other.assignment;
+    nearest = other.nearest;
+    secondid = other.secondid;
+    second = other.second;
+    return *this;
+}
+
+// h Current object to swap with any medoid.
+// mnum Medoid number to swap with h.
+// Scratch assignment to fill.
+// return Cost change
+double SSIMAssignment::computeCostDifferential(int h, int mnum, SSIMAssignment& scratch)
+{
+    // Update medoids of scratch copy.
+    scratch.medoids = medoids;
+    scratch.medoids[mnum] = h;
+    double cost = 0;
+    // Compute costs of reassigning other objects j:
+    for (int j=0; j<num_obs; ++j) {
+        if (h == j) {
+            scratch.recompute(j, mnum, 0, -1, DBL_MAX);
+            continue;
+        }
+        // distance(j, i) to nearest medoid
+        double distcur = nearest[j];
+        // distance(j, h) to new medoid
+        double dist_h = carla_data->getSSIMDistance(h, j);
+        // current assignment of j
+        int jcur = assignment[j];
+        // Check if current medoid of j is removed:
+        if(jcur == mnum) {
+            // distance(j, o) to second nearest / possible reassignment
+            double distsec = second[j];
+            // Case 1b: j switches to new medoid, or to the second nearest:
+            if (dist_h < distsec) {
+                cost += dist_h - distcur;
+                scratch.assignment[j] = mnum;
+                scratch.nearest[j] = dist_h;
+                scratch.second[j] = distsec;
+                scratch.secondid[j] = jcur;
+            } else {
+                // Second nearest is the new assignment.
+                cost += distsec - distcur;
+                // We have to recompute, because we do not know the true new second
+                // nearest.
+                scratch.recompute(j, mnum, dist_h, jcur, distsec);
+            }
+        }
+        else if(dist_h < distcur) {
+            // Case 1c: j is closer to h than its current medoid
+            // and the current medoid is not removed (jcur != mnum).
+            cost += dist_h - distcur;
+            // Second nearest is the previous assignment
+            scratch.assignment[j] = mnum;
+            scratch.nearest[j] = dist_h;
+            scratch.second[j] = distcur;
+            scratch.secondid[j] = jcur;
+        }
+        else { // else Case 1a): j is closer to i than h and m, so no change.
+            int jsec = secondid[j];
+            double distsec = second[j];
+            // Second nearest is still valid.
+            if(jsec != mnum && distsec <= dist_h) {
+                scratch.assignment[j] = jcur;
+                scratch.nearest[j] = distcur;
+                scratch.secondid[j] = jsec;
+                scratch.second[j] = distsec;
+            } else {
+                scratch.recompute(j, jcur, distcur, mnum, dist_h);
+            }
+        }
+    }
+    return cost;
+}
+
+//Recompute the assignment of one point.
+// id Point id
+// mnum Medoid number for known distance
+// known Known distance
+// return cost
+double SSIMAssignment::recompute(int id, int mnum, double known, int snum, double sknown) {
+    double mindist = mnum >= 0 ? known : DBL_MAX, mindist2 = DBL_MAX;
+    int minIndex = mnum, minIndex2 = -1;
+    for(int i = 0; i < medoids.size(); i++) {
+        if(i == mnum) {
+            continue;
+        }
+        double dist = i == snum ? sknown : carla_data->getSSIMDistance(id, medoids[i]);
+        if (id == medoids[i] || dist < mindist) {
+            minIndex2 = minIndex;
+            mindist2 = mindist;
+            minIndex = i;
+            mindist = dist;
+        } else if(dist < mindist2) {
+            minIndex2 = i;
+            mindist2 = dist;
+        }
+    }
+    if(minIndex < 0) {
+        // "Too many infinite distances. Cannot assign objects.");
+        return 0;
+    }
+    assignment[id] = minIndex;
+    nearest[id] = mindist;
+    secondid[id] = minIndex2;
+    second[id] = mindist2;
+    return mindist;
+}
+
+// Assign each point to the nearest medoid.
+// return Assignment cost
+double SSIMAssignment::assignToNearestCluster() { 
+    double cost = 0.;
+    for (int i=0; i< num_obs; ++i) {
+        cost += recompute(i, -1, DBL_MAX, -1, DBL_MAX);
+    }
+    return cost;
+}
+
+bool SSIMAssignment::hasMedoid(int cand) { 
+    if (medoids_dict.empty()) {
+        for (int i=0; i<medoids.size(); ++i) {
+            medoids_dict[medoids[i]] = true;
+        }
+    }
+    return medoids_dict.find(cand) != medoids_dict.end();
+}
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ///
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1351,4 +1491,193 @@ void FastAssignment::performLastSwap(int h)
             }
         }
     }
+}
+
+//  h Current object to swap with any medoid.
+double SSIMFastAssignment::computeCostDifferential(int h)
+{
+    int k = (int)cost.size();
+    for (int i=0; i<k; ++i)  cost[i] = 0;
+    // Compute costs of reassigning other objects j:
+    for (int j=0; j<num_obs; ++j) {
+        if (h == j) {
+            continue;
+        }
+        // distance(j, i) to nearest medoid
+        double distcur = nearest[j];
+        // distance(j, h) to new medoid
+        double dist_h = carla_data->getSSIMDistance(h, j);
+        // current assignment of j
+        int jcur = assignment[j];
+        // Check if current medoid of j is removed:
+        cost[jcur] += std::min(dist_h, second[j]) - distcur;
+        double change = dist_h - distcur;
+        if (change < 0) {
+            for(int mnum = 0; mnum < jcur; mnum++) {
+                cost[mnum] += change;
+            }
+            for(int mnum = jcur + 1; mnum < k; mnum++) {
+                cost[mnum] += change;
+            }
+        }
+    }
+    double min = cost[0];
+    lastbest = 0;
+    for(int i = 1; i < k; i++) {
+        if(cost[i] < min) {
+            min = cost[i];
+            lastbest = i;
+        }
+    }
+    return min;
+}
+
+// Compute the reassignment cost, for one swap.
+// h Current object to swap with the best medoid
+void SSIMFastAssignment::performLastSwap(int h)
+{
+    // Update medoids of scratch copy.
+    medoids[lastbest] = h;
+    
+    // Compute costs of reassigning other objects j:
+    for (int j=0; j<num_obs; ++j) {
+        if (h == j) {
+            recompute(j, lastbest, 0., -1, DBL_MAX);
+            continue;
+        }
+        // distance(j, i) to nearest medoid
+        double distcur = nearest[j];
+        // distance(j, h) to new medoid
+        double dist_h = carla_data->getSSIMDistance(h, j);
+        // current assignment of j
+        int jcur = assignment[j];
+        // Check if current medoid of j is removed:
+        if(jcur == lastbest) {
+            // distance(j, o) to second nearest / possible reassignment
+            double distsec = second[j];
+            // Case 1b: j switches to new medoid, or to the second nearest:
+            if(dist_h < distsec) {
+                assignment[j] = lastbest;
+                nearest[j] = dist_h;
+                second[j] = distsec;
+                secondid[j] = jcur;
+            } else {
+                // We have to recompute, because we do not know the true new second
+                // nearest.
+                recompute(j, lastbest, dist_h, jcur, distsec);
+            }
+        }
+        else if(dist_h < distcur) {
+            // Case 1c: j is closer to h than its current medoid
+            // and the current medoid is not removed (jcur != mnum).
+            // Second nearest is the previous assignment
+            assignment[j] = lastbest;
+            nearest[j] = dist_h;
+            second[j] = distcur;
+            secondid[j] = jcur;
+        }
+        else { // else Case 1a): j is closer to i than h and m, so no change.
+            int jsec = secondid[j];
+            double distsec = second[j];
+            // Second nearest is still valid.
+            if(jsec != lastbest && distsec <= dist_h) {
+                assignment[j] = jcur;
+                nearest[j] = distcur;
+                secondid[j] = jsec;
+                second[j] = distsec;
+            }
+            else {
+                recompute(j, jcur, distcur, lastbest, dist_h);
+            }
+        }
+    }
+}
+
+SSIMFastCLARANS::SSIMFastCLARANS(int num_obs, CarlaData* carla_data, int k, int numlocal, double maxneighbor, int seed)
+: CLARANS(num_obs, nullptr, k, numlocal, maxneighbor, seed), carla_data(carla_data)
+{
+    
+}
+
+double SSIMFastCLARANS::run() {
+    if(k * 2 >= num_obs) {
+      // Random sampling of non-medoids will be slow for huge k
+      //LOG.warning("A very large k was chosen. This implementation is not optimized for this case.");
+    }
+    // Number of retries, relative rate, or absolute count:
+    int retries = (int)ceil(maxneighbor < 1 ? maxneighbor * (num_obs - k) : maxneighbor);
+    // We will be using this to avoid sampling the same points twice.
+    std::vector<int> subsampler(num_obs);
+    for (int i=0; i<num_obs; ++i) subsampler[i] = i;
+    int cand = 0, tmp, rnd;
+    
+    // Setup cluster assignment store
+    SSIMFastAssignment best(k, num_obs, carla_data);
+    SSIMFastAssignment curr(k, num_obs, carla_data);
+    
+    // 1. initialize
+    double bestscore = DBL_MAX;
+    for(int i = 0; i < numlocal; i++) {
+        // 2. choose random initial medoids
+        curr.medoids = PAMUtils::randomSample(random, k, num_obs);
+        
+        //curr.medoids[0]=431;curr.medoids[1] = 211;curr.medoids[2]=293;curr.medoids[3]=10;
+        
+        //  Cost of initial solution:
+        double total = curr.assignToNearestCluster();
+        
+        // 3. Set j to 1.
+        int j = 1;
+        step: while(j < retries) {
+            // 4 part a. choose a random non-medoid (~ neighbor in G):
+            for (int r = 0; r < num_obs; r++) {
+                // Random point
+                rnd = random.nextInt(num_obs - r) + r;
+                // Fisher-Yates shuffle to avoid sampling the same points twice!
+                tmp = subsampler[r];
+                subsampler[r] = subsampler[rnd];
+                subsampler[rnd] = tmp;
+                
+                cand = subsampler[r]; // Random point
+                if(curr.nearest[cand] > 0) {
+                    break; // Good: not a medoid.
+                }
+                // We may have many duplicate points
+                if(curr.second[cand] == 0) {
+                    ++j; // Cannot yield an improvement if we are metric.
+                    goto step;
+                } else if( !curr.hasMedoid(cand)) {
+                    // Probably not a good candidate, but try nevertheless
+                    break;
+                }
+                if(r >= 1000) {
+                    //throw new AbortException("Failed to choose a non-medoid in 1000 attempts. Choose k << N.");
+                    return 0;
+                }
+                // else: this must be the medoid.
+            }
+            // 5. check lower cost
+            double cost = curr.computeCostDifferential(cand);
+            if(!(cost < -1e-12 * total)) {
+                ++j; // 6. try again
+                continue;
+            }
+            total += cost; // cost is negative!
+            // Swap:
+            curr.performLastSwap(cand);
+            j = 1;
+        }
+        // New best:
+        if(total < bestscore) {
+            // Swap:
+            SSIMFastAssignment tmp = curr;
+            curr = best;
+            best = tmp;
+            bestscore = total;
+        }
+    }
+    
+    bestmedoids = best.medoids;
+    bestclusters = best.assignment;
+    return bestscore;
 }
