@@ -1,4 +1,6 @@
 file(REMOVE_RECURSE
+  "CMakeFiles/fast_clarans.dir/carla_data.cpp.o"
+  "CMakeFiles/fast_clarans.dir/carla_data.cpp.o.d"
   "CMakeFiles/fast_clarans.dir/pam.cpp.o"
   "CMakeFiles/fast_clarans.dir/pam.cpp.o.d"
   "CMakeFiles/fast_clarans.dir/python_wrapper.cpp.o"

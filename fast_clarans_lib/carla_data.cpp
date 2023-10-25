@@ -8,8 +8,12 @@
 
 using namespace std;
 
-CarlaData::CarlaData(int num_obs,string source_dir) : num_obs(num_obs),source_dir(source_dir) {
-    laodAllImages(source_dir);
+CarlaData::CarlaData(string source_dir) : source_dir(source_dir) {
+    num_obs = laodAllImages(source_dir);
+    if (num_obs == -1) {
+        std::cerr << "Failed to load images from: " << source_dir << std::endl;
+        return;
+    }
     ssim_dist = new double*[num_obs];
     for(int i=0;i<num_obs;i++){
         ssim_dist[i] = new double[num_obs];
@@ -21,8 +25,10 @@ CarlaData::CarlaData(int num_obs,string source_dir) : num_obs(num_obs),source_di
     }
 }
 
-void CarlaData::laodAllImages(string sourceDir) {
+int CarlaData::laodAllImages(string sourceDir) {
+    int n = 0;
     for (const auto& entry : std::filesystem::directory_iterator(sourceDir)) {
+        n++;
         if(entry.is_directory()){
             laodAllImages(entry.path().string());
         }
@@ -31,13 +37,13 @@ void CarlaData::laodAllImages(string sourceDir) {
         }
         cv::Mat image = cv::imread(entry.path(),cv::IMREAD_UNCHANGED);
         if (image.empty()) {
-            std::cerr << "Failed to read image: " << entry.path() << std::endl;
-            return;
+            return -1;
         }
         torch::Tensor tensor = convertImageToTensor(image);
         imageTensorData.push_back(tensor);
         imagePaths.push_back(entry.path());
     }
+    return n;
 }
 
 torch::Tensor CarlaData::convertImageToTensor(cv::Mat& image){

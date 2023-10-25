@@ -176,7 +176,7 @@ public:
 //     SSIMDistMatrix(int num_obs, const std::vector<double>& dist, const std::vector<int>& _ids=std::vector<int>())
 //     : DistMatrix(_ids), num_obs(num_obs), dist(dist) {
 //         n = (num_obs - 1) * num_obs / 2;
-//     }
+//     }error: ‘CarlaData’ does not name a type
 //     virtual ~SSIMDistMatrix() {}
     
 //     virtual double getDistance(int i, int j) {

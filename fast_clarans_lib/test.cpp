@@ -3,6 +3,7 @@
 #include "ssim.hpp"
 #include <opencv2/opencv.hpp>
 #include <torch/torch.h>
+#include <ctime>
 using namespace std;
 
 void convertTensorToImg(torch::Tensor imageTensor){
@@ -12,15 +13,26 @@ void convertTensorToImg(torch::Tensor imageTensor){
     cv::waitKey(0);
 }
 
-int main(){
-    string sourceDir="/home/krish/CS637-project/interpretable_ood_detection/carla_experiments/training_data/setting_1/0";
-    Medoids medoids;
-    medoids.laodAllImages(sourceDir);
+void testSSIMFastClarans(string sourceDir,int k){
+    // string sourceDir="/home/krish/CS637-project/interpretable_ood_detection/carla_experiments/training_data/setting_1/test_0";
+    ssim_fast_clarans(sourceDir, k, 2, 0.025, 123456789);
+}
+
+int main(int argc, char* argv[]){
+    if (argc != 3) {
+        std::cerr << "usage: ./fast_clarans <path-to-training-data-dir> <num-medoids>\n";
+        return -1;
+    }
+    string sourceDir = argv[1];
+    int k = atoi(argv[2]);
+    // string sourceDir="/home/krish/CS637-project/interpretable_ood_detection/carla_experiments/training_data/setting_1/0";
+    // Medoids medoids;
+    // medoids.laodAllImages(sourceDir);
     // cout<<medoids.imageTensorData[0].sizes()<<endl;
     // cout<<medoids.imageTensorData[1].sizes()<<endl;
     // convertTensorToImg(medoids.imageTensorData[1]);
     // medoids.printAllPaths();
-    auto z = medoids.getSSIMDistance(0,1);
+    // auto z = medoids.getSSIMDistance(0,1);
 
     // auto z=medoids.imageTensorData[0];
     // auto z = torch::rand({12, 12}, torch::TensorOptions(torch::kCPU).dtype(at::kFloat));
@@ -36,5 +48,12 @@ int main(){
     // torch::Tensor Y = torch::rand({1, 3, 32, 32}).to(device);
     // auto z = ssim(X, Y);
     
-    cout<<z;
+    // cout<<z;
+    clock_t start = clock();
+    testSSIMFastClarans(sourceDir,k);
+
+    clock_t end = clock();
+
+    double duration = (static_cast<double>(end - start) / CLOCKS_PER_SEC); // in seconds
+    std::cout << "Time taken: " << duration << " seconds" << std::endl;
 };

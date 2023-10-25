@@ -129,6 +129,30 @@ fast_clarans/fast:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/fast_clarans.dir/build.make CMakeFiles/fast_clarans.dir/build
 .PHONY : fast_clarans/fast
 
+carla_data.o: carla_data.cpp.o
+.PHONY : carla_data.o
+
+# target to build an object file
+carla_data.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/fast_clarans.dir/build.make CMakeFiles/fast_clarans.dir/carla_data.cpp.o
+.PHONY : carla_data.cpp.o
+
+carla_data.i: carla_data.cpp.i
+.PHONY : carla_data.i
+
+# target to preprocess a source file
+carla_data.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/fast_clarans.dir/build.make CMakeFiles/fast_clarans.dir/carla_data.cpp.i
+.PHONY : carla_data.cpp.i
+
+carla_data.s: carla_data.cpp.s
+.PHONY : carla_data.s
+
+# target to generate assembly for a file
+carla_data.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/fast_clarans.dir/build.make CMakeFiles/fast_clarans.dir/carla_data.cpp.s
+.PHONY : carla_data.cpp.s
+
 pam.o: pam.cpp.o
 .PHONY : pam.o
 
@@ -234,6 +258,9 @@ help:
 	@echo "... edit_cache"
 	@echo "... rebuild_cache"
 	@echo "... fast_clarans"
+	@echo "... carla_data.o"
+	@echo "... carla_data.i"
+	@echo "... carla_data.s"
 	@echo "... pam.o"
 	@echo "... pam.i"
 	@echo "... pam.s"

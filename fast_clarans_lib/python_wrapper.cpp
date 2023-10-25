@@ -7,6 +7,8 @@
 #include <filesystem>
 #include <opencv2/opencv.hpp>
 #include <torch/torch.h>
+#include "carla_data.hpp"
+#include <string>
 
 pair<int*,int> vectorToArray(const std::vector<int>& input_vector) {
     size_t length = input_vector.size();
@@ -39,3 +41,31 @@ FastCLARANSOutput fast_clarans(double* dist, int n, int k, int numlocal, double 
 
     return ret;
 }
+
+int ssim_fast_clarans(string sourceDir,int k, int numlocal, double maxneighbor, int seed) {
+    CarlaData carla_data(sourceDir);
+
+    SSIMFastCLARANS clarans(carla_data.num_obs, &carla_data, k, numlocal, maxneighbor, seed);
+
+    FastCLARANSOutput ret;
+    ret.cost = clarans.run();
+
+    vector<int> medoids = clarans.getMedoids();
+    vector<int> results = clarans.getResults();
+    for (int i = 0; i < medoids.size(); i++) {
+        cout << medoids.at(i) << ' ';
+    }
+    cout << endl;
+    for (int i = 0; i < results.size(); i++) {
+        cout << results.at(i) << ' ';
+    }
+
+    return 0;
+}
+
+// void printVector( std::vector<int> const &input) {
+//     for (int i = 0; i < input.size(); i++) {
+//         std::cout << input.at(i) << ' ';
+//     }
+//     std::cout << std::endl;
+// }

@@ -11,14 +11,14 @@ using namespace std;
 class CarlaData {
     private:
         string source_dir;
-        int num_obs;
         double** ssim_dist;
     public:
+        int num_obs;
         std::vector<torch::Tensor> imageTensorData;
         std::vector<std::string> imagePaths;
 
-        CarlaData( int num_obs,string source_dir );
-        void laodAllImages(std::string sourceDir);
+        CarlaData(string source_dir);
+        int laodAllImages(std::string sourceDir);
         torch::Tensor convertImageToTensor(cv::Mat& image);
         void printAllPaths();
         double getSSIMDistance(int i,int j);

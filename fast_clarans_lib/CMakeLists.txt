@@ -8,7 +8,7 @@ set(CMAKE_BUILD_TYPE Debug)
 
 include_directories( ${OpenCV_INCLUDE_DIRS} )
 
-add_executable(fast_clarans test.cpp python_wrapper.cpp pam.cpp ssim.cpp)
+add_executable(fast_clarans test.cpp python_wrapper.cpp pam.cpp ssim.cpp carla_data.cpp)
 # add_library(fast_clarans SHARED pythonWrapper.cpp pythonWrapper.hpp pam.cpp pam.h ssim.cpp)
 target_link_libraries(fast_clarans "${TORCH_LIBRARIES}" "${OpenCV_LIBS}")
 set_property(TARGET fast_clarans PROPERTY CXX_STANDARD 17)
