@@ -127,3 +127,7 @@ class memory:
                     pass
 
         return unsolved_set, all_distances
+
+    def create_memory_from_cv2image(self, cv2_image):
+
+        self.data_point.create_data_from_cv2image(cv2_image)

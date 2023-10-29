@@ -1,3 +1,5 @@
+// This is cython file to generate python wrappper for C++ implementation of FastCLARANS
+
 from libc.stdlib cimport free
 
 cdef extern from "stdlib.h":

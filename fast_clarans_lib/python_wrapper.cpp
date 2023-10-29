@@ -21,6 +21,8 @@ pair<int*,int> vectorToArray(const std::vector<int>& input_vector) {
     return pair<int*,int>(array,length);
 }
 
+// function to run if dist_matrix is provided
+// this dist_matrix may be provided from the python side
 FastCLARANSOutput fast_clarans(double* dist, int n, int k, int numlocal, double maxneighbor, int seed) {
     std::vector<double> dist_matrix(dist, dist + n*(n+1)/2);
 
@@ -42,6 +44,7 @@ FastCLARANSOutput fast_clarans(double* dist, int n, int k, int numlocal, double 
     return ret;
 }
 
+// function to run if if dist_matrix is not provided
 int ssim_fast_clarans(string sourceDir,int k, int numlocal, double maxneighbor, int seed) {
     CarlaData carla_data(sourceDir);
 
@@ -62,10 +65,3 @@ int ssim_fast_clarans(string sourceDir,int k, int numlocal, double maxneighbor, 
 
     return 0;
 }
-
-// void printVector( std::vector<int> const &input) {
-//     for (int i = 0; i < input.size(); i++) {
-//         std::cout << input.at(i) << ' ';
-//     }
-//     std::cout << std::endl;
-// }

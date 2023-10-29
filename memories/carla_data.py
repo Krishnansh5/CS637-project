@@ -143,3 +143,22 @@ class carla_data:
                 ssim_val_total = np.concatenate((ssim_val_total, ssim_val.numpy()), axis=0)
 
         return ssim_val_total
+    
+    def create_data_from_cv2image(self,cv2image):
+        self.carla_tensor = preprocess_cv2img_to_tensor(cv2image,self.device)
+
+def preprocess_cv2img_to_tensor(cv2image,device):
+    b, g, r = cv2.split(cv2image)
+    a = np.ones_like(r) * 255  # Create an alpha channel with all 255 (fully opaque)
+    rgba_image = cv2.merge((b, g, r, a))
+
+    # Resize to 128x128
+    resized_image = cv2.resize(rgba_image, (128, 128))
+
+    # Convert to PyTorch tensor
+    transform = transforms.ToTensor()
+    carla_tensor = transform(resized_image)
+
+    carla_tensor = carla_tensor.to(device)
+
+    return carla_tensor

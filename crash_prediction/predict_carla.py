@@ -4,6 +4,8 @@ import csv
 import time
 from tqdm import tqdm
 
+import cv2
+
 random.seed(201)
 
 def myFunc(e):
@@ -208,3 +210,89 @@ def check_carla_heavy_rain_ood(exp_folder,memorization_object,initial_memory_thr
 
     return results_stat
 
+# def run_carla_prediction_on_dir(exp_folder,memorization_object,initial_memory_threshold, window_size,window_thres,detect_threshold,prob_threshold):
+#     window = []
+#     exp_time = []
+#     total_exp_time = []
+#     episode = False
+#     detect_frame_list =[]
+#     ood_frames = []
+    
+#     for root, dirs, files in os.walk(exp_folder):
+#         for frame in files:
+
+#             cv2.imshow('Video', frame)
+
+#             start_ = time.time()
+
+#             nearest_memory, matched_set, prob_density, exp_time_ = memorization_object.find_match_cv2image(frame,initial_memory_threshold)
+            
+#             exp_time.append(round((exp_time_)*1000,5))
+#             if (len(window) >= window_size):
+#                     window.pop(0)
+#                     if (prob_density < prob_threshold):
+#                         window.append(0)
+#                     else:
+#                         window.append(1)
+#                     total_win = window.count(0)
+#                     if (total_win >= window_thres and episode == False):
+#                         episode = True
+#                         detect_frame_list.append(frame)
+                        
+#             else:
+#                 if (prob_density < prob_threshold):
+#                     window.append(0)
+#                 else:
+#                     window.append(1)
+
+#             total_exp_time.append(round((time.time()-start_)*1000,2)) 
+#             if(episode):
+#                 break
+    
+#     return episode,detect_frame_list,total_exp_time
+
+def run_carla_prediction_on_video(memorization_object,exp_video,initial_memory_threshold,window_size,prob_threshold,window_thres):
+    window = []
+    exp_time = []
+    total_exp_time = []
+    episode = False
+    detect_frame_list =[]
+        
+    while exp_video.isOpened():
+        ret, frame = exp_video.read()
+
+        if not ret:
+            break
+        
+        if cv2.waitKey(1) & 0xFF == ord('q'): # Press 'q' to exit the loop
+            break
+
+        cv2.imshow('Video', frame)
+
+        start_ = time.time()
+
+        nearest_memory, matched_set, prob_density, exp_time_ = memorization_object.find_match_cv2image(frame,initial_memory_threshold)
+        
+        exp_time.append(round((exp_time_)*1000,5))
+        if (len(window) >= window_size):
+                window.pop(0)
+                if (prob_density < prob_threshold):
+                    window.append(0)
+                else:
+                    window.append(1)
+                total_win = window.count(0)
+                if (total_win >= window_thres and episode == False):
+                    episode = True
+                    detect_frame_list.append(frame)
+                    
+        else:
+            if (prob_density < prob_threshold):
+                window.append(0)
+            else:
+                window.append(1)
+
+        total_exp_time.append(round((time.time()-start_)*1000,2)) 
+        if(episode):
+            break
+    
+    return episode,detect_frame_list,total_exp_time

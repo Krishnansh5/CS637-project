@@ -2,11 +2,14 @@ import os
 import numpy as np
 import time
 import json
+import keyboard
 
 from memories.memorization import memory, memorization
-from crash_prediction.predict_carla import check_carla_ood, check_carla_heavy_rain_ood
+from crash_prediction.predict_carla import check_carla_ood, check_carla_heavy_rain_ood, run_carla_prediction_on_video
 
 import logging
+
+import cv2
 
 np.random.seed(101)
 
@@ -18,17 +21,25 @@ def build_memories_lidar(source_dir, dest_dir, init_distance):
     memorization_object = memorization(source_dir, dest_dir)
     memorization_object.learn_memories_with_CLARANS(init_distance_threshold = init_distance)
 
+def create_dist_matrix(source_dir, dest_dir):
+    if not os.path.exists(dest_dir):
+        os.makedirs(dest_dir)
+
+    memorization_object = memorization(source_dir, dest_dir)
+    save_to_disk = True
+    memorization_object.create_dist_matrix(save_to_disk)
+
 def build_memories_carla(source_dir, dest_dir, init_distance):
 
     if not os.path.exists(dest_dir):
         os.makedirs(dest_dir)
     print("Initializing Memorization Object")
     memorization_object = memorization(source_dir, dest_dir)
-    # start_ = time.time()
+    start_ = time.time()
     # memorization_object.learn_memories_with_CLARANS(init_distance_threshold = init_distance)
-    memorization_object.learn_memories_with_fast_CLARANS2()
-    # end_ = time.time()
-    # print("Time taken to build memories: ", end_ - start_)
+    memorization_object.learn_memories_with_fast_CLARANS()
+    end_ = time.time()
+    print("Time taken to build memories: ", end_ - start_)
 
 def run_carla_prediction(memory_dir, source_dir, initial_memory_threshold, detect_threshold,prob_threshold,window_size,window_threshold,task):
 
@@ -90,3 +101,25 @@ def dump_distances(memory_dir):
     memorization_object = memorization(None, memory_dir)
     memorization_object.load_memories(expand_radius = 0.05)
     memorization_object.dump_memory_distance(memory_dir)
+
+def run_video_pipeline(memory_dir,video_path,task,initial_memory_threshold,window_size,prob_threshold,window_thres):
+    print("*****loading memories******")
+    memorization_object = memorization(None, memory_dir)
+    memorization_object.load_memories(expand_radius = 0.05)
+
+    print("*****running video******")
+    exp_video = cv2.VideoCapture(video_path)
+    if task == "heavy_rain":
+        pred, detect_frame_list, total_exp_time = run_carla_prediction_on_video(memorization_object,exp_video,initial_memory_threshold,window_size,prob_threshold,window_thres)
+    
+    if(pred):
+        print("OOD detected at following frames: ")
+        for frame in detect_frame_list:
+            cv2.imshow("frame",frame)
+        print("Press 'c' to exit")
+        keyboard.wait('c')
+    else:
+        print("OOD not detected")
+    
+    print(total_exp_time)
+    

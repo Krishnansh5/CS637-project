@@ -12,6 +12,7 @@ import copy
 import random
 import torch
 import time
+import pickle
 
 from torchvision import transforms, datasets
 from copy import deepcopy as dc
@@ -79,7 +80,7 @@ class memorization :
 
         self.current_memory_dictionary = {}
 
-    def create_dist_matrix(self):
+    def create_dist_matrix(self,saveToDisk):
         lower_triangular_dist_matrix = []
         for name in self.data_container.keys():
             all_distances = self.data_container[name]["data"].compute_distance_batched(self.data_container)
@@ -89,9 +90,12 @@ class memorization :
                 lower_triangular_dist_matrix.append(self.data_container[name1]["dist"][name2])
                 if name1 == name2:
                     break
+        if saveToDisk:
+            with open('dist_matrix.pkl','wb') as f:
+                pickle.dump(lower_triangular_dist_matrix,f)
         return lower_triangular_dist_matrix
 
-    def learn_memories_with_fast_CLARANS2(self, num_clusters=2, save_to_disk=True):
+    def learn_memories_with_fast_CLARANS(self, num_clusters=2, save_to_disk=True):
 
         start_ = time.time()
         dist_matrix = np.array(self.create_dist_matrix(),dtype=np.double)
@@ -108,31 +112,6 @@ class memorization :
         print(cost)
         print(medoids)
         print(results)
-
-    # def learn_memories_with_fast_CLARANS(self, num_clusters=2, save_to_disk=True):
-    #     start_ = time.time()
-    #     dist_matrix = np.array(self.create_dist_matrix(),dtype=np.double)
-    #     print(self.num_samples)
-    #     print(dist_matrix)
-    #     # dist_matrix = dist_matrix.ctypes.data_as(ctypes.POINTER(ctypes.c_double))
-    #     end_ = time.time()
-    #     print("Time taken to build distance matrix: ", end_ - start_)
-
-    #     fast_clarans_dll = ctypes.CDLL('./fast_clarans.so')
-    #     # FastCLARANSOutput fast_clarans(const double* dist, int n, int k, int numlocal=2, double maxneighbor=0.025, int seed = 123456789);
-    #     fast_clarans_dll.fast_clarans.argtypes = [ np.ctypeslib.ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"), ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_double, ctypes.c_int]
-    #     fast_clarans_dll.fast_clarans.restype = ctypes.c_void_p
-
-    #     data_ptr = fast_clarans_dll.fast_clarans(dist_matrix,self.num_samples,num_clusters,2,ctypes.c_double(0.025),123456789)
-    #     print("fast clarans done")
-    #     class FastCLARANSOutput(ctypes.Structure):
-    #         _fields_ = [("cost",ctypes.c_double),
-    #                     ("medoids",np.ctypeslib.ndpointer(dtype=np.int32)),
-    #                     ("results",np.ctypeslib.ndpointer(dtype=np.int32))]
-    #     # fast_clarans_output = FastCLARANSOutput.from_address(data_ptr)
-    #     # print(fast_clarans_output.cost)
-    #     # print(np.array(fast_clarans_output.medoids,dtype=np.int32))
-    #     # print(np.array(fast_clarans_output.results,dtype=np.int32))
 
     def learn_memories(self, distance_threshold, save_to_disk = True):
 
@@ -579,7 +558,7 @@ class memorization :
         
         selected_distance={}
         for k, v in sorted(all_distances.items(), key=lambda item: item[1]):
-            selected_distance[k]=v
+            selected_distance[k]=v # choosing 5 closest distance, this is M_k in the paper
             if(len(selected_distance) >= 5):
                 break
         
@@ -601,3 +580,45 @@ class memorization :
         std = np.sqrt(std)
         bandwidth = 1.06*std*(len(data_dictionary)**())
         return bandwidth
+    
+    def find_match_cv2image(self,cv2image,initial_memory_threshold):
+        test_memory = memory(self.device)
+    
+        test_memory.create_memory_from_cv2image(cv2image)
+
+        start = time.time()
+        # Form a group of data out of all the current memories
+        data_dictionary = {}
+        
+        for each_memory in self.current_memory_dictionary.keys():
+            data_dictionary[each_memory] = {"data" : self.current_memory_dictionary[each_memory].data_point,\
+            "files" : {"image" : None } }
+
+        data_dictionary_copy = dc(data_dictionary)
+
+        if (len(data_dictionary_copy) == 0):
+            return None, {}
+
+        all_distances = test_memory.data_point.compute_distance_batched(data_dictionary_copy)
+        assert len(data_dictionary_copy) == len(all_distances)
+        #  Find the distances
+        # Find the closest memory
+
+        distances = {}
+        min_dist = np.inf
+
+        closest_memory = None
+        for memory_name in all_distances.keys():
+
+            current_threshold = self.current_memory_dictionary[memory_name].distance_score[0]
+            if  all_distances[memory_name] < min_dist:
+
+                distances[memory_name] = all_distances[memory_name]
+                min_dist = distances[memory_name]
+                closest_memory = memory_name
+
+        
+        prob_density = self.probability_density_estimation(all_distances,initial_memory_threshold)
+
+        exp_time = time.time() - start
+        return closest_memory, distances, prob_density, exp_time

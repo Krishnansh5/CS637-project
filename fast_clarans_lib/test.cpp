@@ -1,6 +1,7 @@
 #include "python_wrapper.hpp"
 #include "pam.h"
 #include "ssim.hpp"
+#include "carla_data.hpp"
 #include <opencv2/opencv.hpp>
 #include <torch/torch.h>
 #include <ctime>
@@ -19,15 +20,25 @@ void testSSIMFastClarans(string sourceDir,int k){
 }
 
 int main(int argc, char* argv[]){
-    if (argc != 3) {
-        std::cerr << "usage: ./fast_clarans <path-to-training-data-dir> <num-medoids>\n";
-        return -1;
-    }
-    string sourceDir = argv[1];
-    int k = atoi(argv[2]);
-    // string sourceDir="/home/krish/CS637-project/interpretable_ood_detection/carla_experiments/training_data/setting_1/0";
-    // Medoids medoids;
-    // medoids.laodAllImages(sourceDir);
+    // if (argc != 3) {
+    //     std::cerr << "usage: ./fast_clarans <path-to-training-data-dir> <num-medoids>\n";
+    //     return -1;
+    // }
+    // string sourceDir = argv[1];
+    // int k = atoi(argv[2]);
+
+    string sourceDir="/home/krish/CS637-project/interpretable_ood_detection/carla_experiments/training_data/setting_1/0";
+    CarlaData carla_data(sourceDir);
+    auto X=carla_data.imageTensorData[0];
+    auto Y=carla_data.imageTensorData[1];
+    int c = 2;
+    auto X1 = c*X;
+    auto Y1 = c*Y;
+    auto z = ssim(X,Y);
+    cout<<z<<endl;
+    z = ssim(X1, Y1);
+    cout<<z<<endl;
+
     // cout<<medoids.imageTensorData[0].sizes()<<endl;
     // cout<<medoids.imageTensorData[1].sizes()<<endl;
     // convertTensorToImg(medoids.imageTensorData[1]);
@@ -49,11 +60,13 @@ int main(int argc, char* argv[]){
     // auto z = ssim(X, Y);
     
     // cout<<z;
-    clock_t start = clock();
-    testSSIMFastClarans(sourceDir,k);
 
-    clock_t end = clock();
 
-    double duration = (static_cast<double>(end - start) / CLOCKS_PER_SEC); // in seconds
-    std::cout << "Time taken: " << duration << " seconds" << std::endl;
+    // clock_t start = clock();
+    // testSSIMFastClarans(sourceDir,k);
+
+    // clock_t end = clock();
+
+    // double duration = (static_cast<double>(end - start) / CLOCKS_PER_SEC); // in seconds
+    // std::cout << "Time taken: " << duration << " seconds" << std::endl;
 };
